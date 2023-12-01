@@ -6,6 +6,7 @@ from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import FileExtensionValidator
 from django.db import models
+from django.utils import timezone
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from common.models import BaseModel
@@ -85,12 +86,3 @@ class UserConfirmation(BaseModel):
 
     def __str__(self):
         return self.user.__str__()
-
-    def save(self, *args, **kwargs):
-        if not self.pk:
-            expiration_minute = {
-                VerificationTypeChoices.EMAIL: settings.CONFIRMATION_EXPIRATION_MINUTE_VIA_EMAIL,
-                VerificationTypeChoices.PHONE_NUMBER: settings.CONFIRMATION_EXPIRATION_MINUTE_VIA_PHONE,
-            }
-            self.expiration_time = datetime.now() + timedelta(minutes=expiration_minute.get(self.verification_type))
-        return super(UserConfirmation, self).save(*args, **kwargs)

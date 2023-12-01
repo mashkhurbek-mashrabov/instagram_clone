@@ -59,4 +59,4 @@ def send_confirmation_email(email, code):
 
 
 def send_sms(phone_number, code):
-    print(f"Code has been sent to {phone_number}")
+    print(f"Code has been sent to {phone_number}\nCode: {code}")
