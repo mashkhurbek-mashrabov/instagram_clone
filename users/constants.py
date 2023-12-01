@@ -11,6 +11,14 @@ class AuthTypeChoices(IntegerChoices):
     EMAIL = 1, 'Email'
     PHONE_NUMBER = 2, 'Phone Number'
 
+    @classmethod
+    def get_type(cls, value):
+        values_dict = {
+            'email': cls.EMAIL,
+            'phone_number': cls.PHONE_NUMBER
+        }
+        return values_dict.get(value)
+
 
 class AuthStatusChoices(IntegerChoices):
     NEW = 1, 'New'
@@ -22,3 +30,11 @@ class AuthStatusChoices(IntegerChoices):
 class VerificationTypeChoices(IntegerChoices):
     EMAIL = 1, 'Email'
     PHONE_NUMBER = 2, 'Phone Number'
+
+    @classmethod
+    def get_type(cls, value):
+        values_dict = {
+            'email': cls.EMAIL,
+            'phone_number': cls.PHONE_NUMBER
+        }
+        return values_dict.get(value)
