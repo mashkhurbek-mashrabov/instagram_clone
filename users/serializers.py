@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from common.utils import is_email_or_phone_number
+from common.utils import is_email_or_phone_number, send_confirmation_email
 from .constants import AuthTypeChoices
 from .models import User, UserConfirmation
 
@@ -29,16 +29,22 @@ class SignUpSerializer(serializers.ModelSerializer):
         code = user.create_verify_code(user.auth_type)
 
         if user.auth_type == AuthTypeChoices.EMAIL:
-            pass
+            send_confirmation_email(user.email, code)
         elif user.auth_type == AuthTypeChoices.PHONE_NUMBER:
             pass
         user.save()
+        return user
 
     def validate(self, data):
         super(SignUpSerializer, self).validate(data)
         data = self.auth_validate(data)
-        auth_type = is_email_or_phone_number(data.get('email_phone_number'))
-        data.update({auth_type: data.get('email_phone_number')})
+        email_phone_number = data.get('email_phone_number').lower()
+        auth_type = is_email_or_phone_number(email_phone_number)
+
+        if User.objects.filter(**{auth_type: email_phone_number}).exists():
+            raise serializers.ValidationError({'email_phone_number': 'Email or phone number already exists.'})
+
+        data.update({auth_type: email_phone_number})
         del data['email_phone_number']
         data.update({'auth_type': AuthTypeChoices.get_type(auth_type)})
         return data
@@ -47,4 +53,9 @@ class SignUpSerializer(serializers.ModelSerializer):
     def auth_validate(data):
         print(data)
         data['email_phone_number'] = data.get('email_phone_number').lower()
+        return data
+
+    def to_representation(self, instance):
+        data = super(SignUpSerializer, self).to_representation(instance)
+        data.update(**instance.token())
         return data

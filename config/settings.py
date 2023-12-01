@@ -60,7 +60,7 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR.joinpath('templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -144,3 +144,5 @@ AUTH_USER_MODEL = 'users.User'
 
 CONFIRMATION_EXPIRATION_MINUTE_VIA_PHONE = 2
 CONFIRMATION_EXPIRATION_MINUTE_VIA_EMAIL = 5
+
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'

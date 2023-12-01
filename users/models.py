@@ -1,4 +1,5 @@
 import random
+import uuid
 from datetime import datetime, timedelta
 
 from django.conf import settings
@@ -38,7 +39,7 @@ class User(AbstractUser, BaseModel):
 
     def check_username(self):
         if not self.username:
-            temp_username = f"temp_{self.short_id}"
+            temp_username = f"temp_{str(uuid.uuid4()).split('-')[0]}"
             while User.objects.filter(username=temp_username).exists():
                 temp_username = f"{temp_username}{random.randint(0, 9)}"
             self.username = temp_username
@@ -69,7 +70,7 @@ class User(AbstractUser, BaseModel):
         self.hashing_password()
 
     def save(self, *args, **kwargs):
-        if not self.pk:
+        if not self.pk or not self.username:
             self.clean()
         super(User, self).save(*args, **kwargs)
 
