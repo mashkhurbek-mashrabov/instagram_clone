@@ -17,3 +17,8 @@ class AuthStatusChoices(IntegerChoices):
     CODE_VERIFIED = 2, 'Code Verified'
     DONE = 3, 'Done'
     PHOTO_STEP = 4, 'Photo Step'
+
+
+class VerificationTypeChoices(IntegerChoices):
+    EMAIL = 1, 'Email'
+    PHONE_NUMBER = 2, 'Phone Number'
