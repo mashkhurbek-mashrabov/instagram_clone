@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from common.utils import is_email_or_phone_number, send_confirmation_email
+from common.utils import is_email_or_phone_number, send_confirmation_email, send_sms
 from .constants import AuthTypeChoices
 from .models import User, UserConfirmation
 
@@ -31,7 +31,7 @@ class SignUpSerializer(serializers.ModelSerializer):
         if user.auth_type == AuthTypeChoices.EMAIL:
             send_confirmation_email(user.email, code)
         elif user.auth_type == AuthTypeChoices.PHONE_NUMBER:
-            pass
+            send_sms(user.phone_number, code)
         user.save()
         return user
 
@@ -51,7 +51,6 @@ class SignUpSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def auth_validate(data):
-        print(data)
         data['email_phone_number'] = data.get('email_phone_number').lower()
         return data
 

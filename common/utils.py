@@ -56,3 +56,7 @@ def send_confirmation_email(email, code):
             'body': html_content
         }
     )
+
+
+def send_sms(phone_number, code):
+    print(f"Code has been sent to {phone_number}")
