@@ -4,14 +4,14 @@ from django.shortcuts import render
 from django.utils import timezone
 from rest_framework import permissions, status
 from rest_framework.exceptions import ValidationError
-from rest_framework.generics import CreateAPIView
+from rest_framework.generics import CreateAPIView, UpdateAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from common.utils import send_confirmation_email, send_sms
 from users.constants import AuthStatusChoices, AuthTypeChoices
 from users.models import User, UserConfirmation
-from users.serializers import SignUpSerializer
+from users.serializers import SignUpSerializer, SetUserInformationSerializer
 
 
 class CreateUserView(CreateAPIView):
@@ -51,6 +51,8 @@ class VerifyAPIView(APIView):
 
 
 class ResendVerifyCodeView(APIView):
+    permission_classes = (permissions.IsAuthenticated,)
+    http_method_names = ['get']
 
     def get(self, request, *args, **kwargs):
         user = request.user
@@ -74,3 +76,24 @@ class ResendVerifyCodeView(APIView):
         return UserConfirmation.objects.filter(user=user,
                                                expiration_time__gt=datetime.now(tz=timezone.utc),
                                                is_confirmed=False).exists()
+
+
+class UpdateUserInformationView(UpdateAPIView):
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = SetUserInformationSerializer
+    http_method_names = ['patch', 'put']
+
+    def get_object(self):
+        return self.request.user
+
+    def update(self, request, *args, **kwargs):
+        super(UpdateUserInformationView, self).update(request, *args, **kwargs)
+        return Response({'message': 'User information has been updated successfully',
+                         'success': True},
+                        status=status.HTTP_200_OK)
+
+    def partial_update(self, request, *args, **kwargs):
+        super(UpdateUserInformationView, self).partial_update(request, *args, **kwargs)
+        return Response({'message': 'User information has been updated successfully',
+                         'success': True},
+                        status=status.HTTP_200_OK)

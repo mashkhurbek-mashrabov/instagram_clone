@@ -1,7 +1,10 @@
+import re
+
+from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
 from common.utils import is_email_or_phone_number, send_confirmation_email, send_sms
-from .constants import AuthTypeChoices
+from .constants import AuthTypeChoices, AuthStatusChoices
 from .models import User, UserConfirmation
 
 
@@ -58,3 +61,48 @@ class SignUpSerializer(serializers.ModelSerializer):
         data = super(SignUpSerializer, self).to_representation(instance)
         data.update(**instance.token())
         return data
+
+
+class SetUserInformationSerializer(serializers.Serializer):
+    first_name = serializers.CharField(write_only=True, required=False)
+    last_name = serializers.CharField(write_only=True, required=False)
+    username = serializers.CharField(write_only=True, required=False)
+    password = serializers.CharField(write_only=True, required=False)
+    confirm_password = serializers.CharField(write_only=True, required=False)
+
+    def validate(self, data):
+        password = data.get('password')
+        confirm_password = data.get('confirm_password')
+
+        if password != confirm_password:
+            raise serializers.ValidationError({'confirm_password': 'Passwords does not match.'})
+
+        if password:
+            validate_password(password)
+
+        return data
+
+    def validate_username(self, username):
+        if not 5 <= len(username) <= 30:
+            raise serializers.ValidationError(
+                {'message': 'Username length must be between 5 and 30 characters.', 'success': False})
+
+        if not re.match("^[a-zA-Z0-9_.-]+$", username):
+            raise serializers.ValidationError({'message': 'Invalid username.', 'success': False})
+
+        if User.objects.filter(username=str(username).lower()).exists():
+            raise serializers.ValidationError({'message': 'Username already exists.', 'success': False})
+
+        return username
+
+    def update(self, instance, validated_data):
+        instance.first_name = validated_data.get('first_name', instance.first_name)
+        instance.last_name = validated_data.get('last_name', instance.last_name)
+        instance.username = validated_data.get('username', instance.username)
+        instance.set_password(validated_data.get('password', instance.password))
+
+        if instance.auth_status == AuthStatusChoices.CODE_VERIFIED:
+            instance.auth_status = AuthStatusChoices.DONE
+
+        instance.save()
+        return instance
