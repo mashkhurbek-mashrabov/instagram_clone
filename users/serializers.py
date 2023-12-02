@@ -1,11 +1,15 @@
 import re
 
 from django.contrib.auth import authenticate
+from django.contrib.auth.models import update_last_login
 from django.contrib.auth.password_validation import validate_password
 from django.core.validators import FileExtensionValidator
 from django.db.models import Q
 from rest_framework import serializers, status
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.generics import get_object_or_404
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+from rest_framework_simplejwt.tokens import AccessToken
 
 from common.utils import is_email_or_phone_number, send_confirmation_email, send_sms
 from .constants import AuthTypeChoices, AuthStatusChoices
@@ -160,3 +164,14 @@ class LoginSerializer(serializers.Serializer):
                                               code=status.HTTP_400_BAD_REQUEST)
 
         return user
+
+
+class LoginRefreshTokenSerializer(TokenRefreshSerializer):
+
+    def validate(self, attrs):
+        data = super(LoginRefreshTokenSerializer, self).validate(attrs)
+        access_token_instance = AccessToken(data['access'])
+        user_id = access_token_instance['user_id']
+        user = get_object_or_404(User, id=user_id)
+        update_last_login(None, user)
+        return data
