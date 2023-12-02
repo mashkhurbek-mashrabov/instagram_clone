@@ -7,11 +7,12 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.generics import CreateAPIView, UpdateAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 from common.utils import send_confirmation_email, send_sms
 from users.constants import AuthStatusChoices, AuthTypeChoices
 from users.models import User, UserConfirmation
-from users.serializers import SignUpSerializer, SetUserInformationSerializer, ChangeUserSerializer
+from users.serializers import SignUpSerializer, SetUserInformationSerializer, ChangeUserSerializer, LoginSerializer
 
 
 class CreateUserView(CreateAPIView):
@@ -113,3 +114,7 @@ class ChangeUserPhotoView(APIView):
             return Response({'message': 'User photo has been updated successfully', 'success': True},
                             status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class LoginView(TokenObtainPairView):
+    serializer_class = LoginSerializer
