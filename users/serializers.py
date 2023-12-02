@@ -1,7 +1,15 @@
 import re
 
+from django.contrib.auth import authenticate
+from django.contrib.auth.models import update_last_login
 from django.contrib.auth.password_validation import validate_password
-from rest_framework import serializers
+from django.core.validators import FileExtensionValidator
+from django.db.models import Q
+from rest_framework import serializers, status
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.generics import get_object_or_404
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+from rest_framework_simplejwt.tokens import AccessToken
 
 from common.utils import is_email_or_phone_number, send_confirmation_email, send_sms
 from .constants import AuthTypeChoices, AuthStatusChoices
@@ -106,3 +114,64 @@ class SetUserInformationSerializer(serializers.Serializer):
 
         instance.save()
         return instance
+
+
+class ChangeUserSerializer(serializers.Serializer):
+    photo = serializers.ImageField(
+        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'heic', 'heif'])])
+
+    def update(self, instance, validated_data):
+        photo = validated_data.get('photo', instance.photo)
+        if photo:
+            instance.photo = photo
+            instance.auth_status = AuthStatusChoices.PHOTO_STEP
+            instance.save()
+        return instance
+
+
+class LoginSerializer(serializers.Serializer):
+
+    def __init__(self, *args, **kwargs):
+        super(LoginSerializer, self).__init__(*args, **kwargs)
+        self.fields['userinput'] = serializers.CharField(required=True)
+        self.fields['password'] = serializers.CharField(required=True)
+
+    def validate(self, data):
+        user = self.auth_validate(data)
+
+        if user.auth_status not in [AuthStatusChoices.DONE, AuthStatusChoices.PHOTO_STEP]:
+            raise PermissionDenied('User is not verified. Please verify your account first')
+
+        data = user.token()
+        return data
+
+    def auth_validate(self, data):
+        user_input = data.get('userinput').lower()
+        try:
+            user = User.objects.get(
+                Q(username__iexact=user_input) | Q(email__iexact=user_input) | Q(phone_number=user_input))
+        except User.DoesNotExist:
+            raise serializers.ValidationError({'message': 'User does not exist.', 'success': False},
+                                              code=status.HTTP_404_NOT_FOUND)
+
+        user = authenticate(username=user.username, password=data.get('password'))
+        if user is None:
+            raise serializers.ValidationError({'message': 'Invalid username or password.', 'success': False},
+                                              code=status.HTTP_400_BAD_REQUEST)
+
+        if user.auth_status in [AuthStatusChoices.CODE_VERIFIED, AuthStatusChoices.NEW]:
+            raise serializers.ValidationError({'message': 'User is not verified.', 'success': False},
+                                              code=status.HTTP_400_BAD_REQUEST)
+
+        return user
+
+
+class LoginRefreshTokenSerializer(TokenRefreshSerializer):
+
+    def validate(self, attrs):
+        data = super(LoginRefreshTokenSerializer, self).validate(attrs)
+        access_token_instance = AccessToken(data['access'])
+        user_id = access_token_instance['user_id']
+        user = get_object_or_404(User, id=user_id)
+        update_last_login(None, user)
+        return data
