@@ -15,7 +15,7 @@ from common.utils import send_confirmation_email, send_sms, is_email_or_phone_nu
 from users.constants import AuthStatusChoices, AuthTypeChoices
 from users.models import User, UserConfirmation
 from users.serializers import SignUpSerializer, SetUserInformationSerializer, ChangeUserSerializer, LoginSerializer, \
-    LoginRefreshTokenSerializer, LogoutSerializer, ForgotPasswordSerializer
+    LoginRefreshTokenSerializer, LogoutSerializer, ForgotPasswordSerializer, ResetPasswordSerializer
 
 
 class CreateUserView(CreateAPIView):
@@ -31,10 +31,6 @@ class VerifyAPIView(APIView):
         user = request.user
         code = request.data.get('code')
 
-        if user.auth_status != AuthStatusChoices.NEW:
-            return Response({'message': 'User is already verified', 'success': False},
-                            status=status.HTTP_400_BAD_REQUEST)
-
         user_confirmation = self.code_is_valid(user, code)
         if user_confirmation is None:
             raise ValidationError({'message': 'Invalid code'})
@@ -43,7 +39,7 @@ class VerifyAPIView(APIView):
         if user.auth_status == AuthStatusChoices.NEW:
             user.auth_status = AuthStatusChoices.CODE_VERIFIED
             user.save()
-        return Response({'message': 'Code verified'}, status=status.HTTP_200_OK)
+        return Response({'message': 'Code verified', **user.token()}, status=status.HTTP_200_OK)
 
     @staticmethod
     def code_is_valid(user, code):
@@ -157,4 +153,22 @@ class ForgotPasswordView(APIView):
         elif auth_type == AuthTypeChoices.PHONE_NUMBER:
             send_sms(user.phone_number, code)
 
-        return Response({'message': 'Code has been sent', 'success': True}, status=status.HTTP_200_OK)
+        return Response({'message': 'Code has been sent', 'success': True, **user.token()}, status=status.HTTP_200_OK)
+
+
+class ResetPasswordView(UpdateAPIView):
+    serializer_class = ResetPasswordSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+    http_method_names = ['patch', 'put']
+
+    def get_object(self):
+        return self.request.user
+
+    def update(self, request, *args, **kwargs):
+        response = super(ResetPasswordView, self).update(request, *args, **kwargs)
+        try:
+            user = User.objects.get(id=response.data.get('id'))
+        except User.DoesNotExist:
+            raise ValidationError({'message': 'User does not exist.', 'success': False}, code=status.HTTP_404_NOT_FOUND)
+
+        return Response({'message': 'Password has been reset successfully', **user.token()}, status=status.HTTP_200_OK)

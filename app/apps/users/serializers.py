@@ -216,3 +216,32 @@ class ForgotPasswordSerializer(serializers.Serializer):
         attrs['user'] = user
         attrs['auth_type'] = auth_type
         return attrs
+
+
+class ResetPasswordSerializer(serializers.ModelSerializer):
+    id = serializers.UUIDField(read_only=True)
+    password = serializers.CharField(write_only=True, required=True)
+    confirm_password = serializers.CharField(write_only=True, required=True)
+
+    class Meta:
+        model = User
+        fields = (
+            'id',
+            'password',
+            'confirm_password',
+        )
+
+    def validate(self, attrs):
+        data = super(ResetPasswordSerializer, self).validate(attrs)
+
+        if data['password'] != data['confirm_password']:
+            raise serializers.ValidationError({'confirm_password': 'Passwords does not match.'})
+
+        validate_password(data['password'])
+
+        return data
+
+    def update(self, instance, validated_data):
+        password = validated_data.pop('password')
+        instance.set_password(password)
+        return super(ResetPasswordSerializer, self).update(instance, validated_data)
