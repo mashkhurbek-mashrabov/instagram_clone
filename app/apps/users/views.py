@@ -11,11 +11,11 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from common.utils import send_confirmation_email, send_sms
+from common.utils import send_confirmation_email, send_sms, is_email_or_phone_number
 from users.constants import AuthStatusChoices, AuthTypeChoices
 from users.models import User, UserConfirmation
 from users.serializers import SignUpSerializer, SetUserInformationSerializer, ChangeUserSerializer, LoginSerializer, \
-    LoginRefreshTokenSerializer, LogoutSerializer
+    LoginRefreshTokenSerializer, LogoutSerializer, ForgotPasswordSerializer
 
 
 class CreateUserView(CreateAPIView):
@@ -136,3 +136,25 @@ class LogoutView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response({'message': 'User logged out successfully', 'success': True}, status=status.HTTP_200_OK)
+
+
+class ForgotPasswordView(APIView):
+    permission_classes = (permissions.AllowAny,)
+    serializer_class = ForgotPasswordSerializer
+    http_method_names = ['post']
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = serializer.validated_data.get('user')
+        auth_type = serializer.validated_data.get('auth_type')
+        auth_type = AuthTypeChoices.get_type(auth_type)
+        code = user.create_verify_code(auth_type)
+
+        if auth_type == AuthTypeChoices.EMAIL:
+            send_confirmation_email(user.email, code)
+        elif auth_type == AuthTypeChoices.PHONE_NUMBER:
+            send_sms(user.phone_number, code)
+
+        return Response({'message': 'Code has been sent', 'success': True}, status=status.HTTP_200_OK)

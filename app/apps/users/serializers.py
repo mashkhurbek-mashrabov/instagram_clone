@@ -197,3 +197,22 @@ class LogoutSerializer(serializers.Serializer):
             self.fail('bad_token')
         except Exception as e:
             print('\nException in logging out:', e)
+
+
+class ForgotPasswordSerializer(serializers.Serializer):
+    email_phone_number = serializers.CharField(write_only=True, required=True)
+
+    def validate(self, attrs):
+        attrs = super(ForgotPasswordSerializer, self).validate(attrs)
+        email_phone_number = attrs.get('email_phone_number').lower()
+
+        auth_type = is_email_or_phone_number(email_phone_number)
+
+        try:
+            user = User.objects.get(Q(email=email_phone_number) | Q(phone_number=email_phone_number))
+        except User.DoesNotExist:
+            raise serializers.ValidationError({'message': 'User does not exist.', 'success': False},
+                                              code=status.HTTP_404_NOT_FOUND)
+        attrs['user'] = user
+        attrs['auth_type'] = auth_type
+        return attrs
