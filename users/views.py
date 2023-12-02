@@ -11,7 +11,7 @@ from rest_framework.views import APIView
 from common.utils import send_confirmation_email, send_sms
 from users.constants import AuthStatusChoices, AuthTypeChoices
 from users.models import User, UserConfirmation
-from users.serializers import SignUpSerializer, SetUserInformationSerializer
+from users.serializers import SignUpSerializer, SetUserInformationSerializer, ChangeUserSerializer
 
 
 class CreateUserView(CreateAPIView):
@@ -97,3 +97,19 @@ class UpdateUserInformationView(UpdateAPIView):
         return Response({'message': 'User information has been updated successfully',
                          'success': True},
                         status=status.HTTP_200_OK)
+
+
+class ChangeUserPhotoView(APIView):
+    permission_classes = (permissions.IsAuthenticated,)
+    http_method_names = ['patch', 'put']
+    serializer_class = ChangeUserSerializer
+
+    def put(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+
+        if serializer.is_valid():
+            user = request.user
+            serializer.update(instance=user, validated_data=serializer.validated_data)
+            return Response({'message': 'User photo has been updated successfully', 'success': True},
+                            status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

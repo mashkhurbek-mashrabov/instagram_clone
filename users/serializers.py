@@ -1,6 +1,7 @@
 import re
 
 from django.contrib.auth.password_validation import validate_password
+from django.core.validators import FileExtensionValidator
 from rest_framework import serializers
 
 from common.utils import is_email_or_phone_number, send_confirmation_email, send_sms
@@ -105,4 +106,17 @@ class SetUserInformationSerializer(serializers.Serializer):
             instance.auth_status = AuthStatusChoices.DONE
 
         instance.save()
+        return instance
+
+
+class ChangeUserSerializer(serializers.Serializer):
+    photo = serializers.ImageField(
+        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'heic', 'heif'])])
+
+    def update(self, instance, validated_data):
+        photo = validated_data.get('photo', instance.photo)
+        if photo:
+            instance.photo = photo
+            instance.auth_status = AuthStatusChoices.PHOTO_STEP
+            instance.save()
         return instance
