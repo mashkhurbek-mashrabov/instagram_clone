@@ -7,13 +7,15 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.generics import CreateAPIView, UpdateAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from common.utils import send_confirmation_email, send_sms
 from users.constants import AuthStatusChoices, AuthTypeChoices
 from users.models import User, UserConfirmation
 from users.serializers import SignUpSerializer, SetUserInformationSerializer, ChangeUserSerializer, LoginSerializer, \
-    LoginRefreshTokenSerializer
+    LoginRefreshTokenSerializer, LogoutSerializer
 
 
 class CreateUserView(CreateAPIView):
@@ -123,3 +125,14 @@ class LoginView(TokenObtainPairView):
 
 class LoginRefreshTokenView(TokenRefreshView):
     serializer_class = LoginRefreshTokenSerializer
+
+
+class LogoutView(APIView):
+    serializer_class = LogoutSerializer
+    permission_classes = (permissions.AllowAny,)
+
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({'message': 'User logged out successfully', 'success': True}, status=status.HTTP_200_OK)
