@@ -5,11 +5,13 @@ from django.contrib.auth.models import update_last_login
 from django.contrib.auth.password_validation import validate_password
 from django.core.validators import FileExtensionValidator
 from django.db.models import Q
+from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers, status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.generics import get_object_or_404
+from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
-from rest_framework_simplejwt.tokens import AccessToken
+from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
 from common.utils import is_email_or_phone_number, send_confirmation_email, send_sms
 from .constants import AuthTypeChoices, AuthStatusChoices
@@ -175,3 +177,71 @@ class LoginRefreshTokenSerializer(TokenRefreshSerializer):
         user = get_object_or_404(User, id=user_id)
         update_last_login(None, user)
         return data
+
+
+class LogoutSerializer(serializers.Serializer):
+    refresh = serializers.CharField()
+
+    default_error_messages = {
+        'bad_token': _('Token is invalid or expired')
+    }
+
+    def validate(self, attrs):
+        self.token = attrs['refresh']
+        return attrs
+
+    def save(self, **kwargs):
+        try:
+            RefreshToken(self.token).blacklist()
+        except TokenError:
+            self.fail('bad_token')
+        except Exception as e:
+            print('\nException in logging out:', e)
+
+
+class ForgotPasswordSerializer(serializers.Serializer):
+    email_phone_number = serializers.CharField(write_only=True, required=True)
+
+    def validate(self, attrs):
+        attrs = super(ForgotPasswordSerializer, self).validate(attrs)
+        email_phone_number = attrs.get('email_phone_number').lower()
+
+        auth_type = is_email_or_phone_number(email_phone_number)
+
+        try:
+            user = User.objects.get(Q(email=email_phone_number) | Q(phone_number=email_phone_number))
+        except User.DoesNotExist:
+            raise serializers.ValidationError({'message': 'User does not exist.', 'success': False},
+                                              code=status.HTTP_404_NOT_FOUND)
+        attrs['user'] = user
+        attrs['auth_type'] = auth_type
+        return attrs
+
+
+class ResetPasswordSerializer(serializers.ModelSerializer):
+    id = serializers.UUIDField(read_only=True)
+    password = serializers.CharField(write_only=True, required=True)
+    confirm_password = serializers.CharField(write_only=True, required=True)
+
+    class Meta:
+        model = User
+        fields = (
+            'id',
+            'password',
+            'confirm_password',
+        )
+
+    def validate(self, attrs):
+        data = super(ResetPasswordSerializer, self).validate(attrs)
+
+        if data['password'] != data['confirm_password']:
+            raise serializers.ValidationError({'confirm_password': 'Passwords does not match.'})
+
+        validate_password(data['password'])
+
+        return data
+
+    def update(self, instance, validated_data):
+        password = validated_data.pop('password')
+        instance.set_password(password)
+        return super(ResetPasswordSerializer, self).update(instance, validated_data)
