@@ -20,6 +20,7 @@ services:
     platform: linux/x86_64
     volumes:
       - static_data:/app/vol
+      - ./app:/app
     restart: always
     ports:
       - 8000:8000
@@ -32,7 +33,7 @@ services:
 
 
   postgres:
-    image: postgres:15-alpine3.18
+    image: postgres:15.5-alpine3.18
     container_name: instagram_clone_postgres_container
     restart: always
     volumes:
