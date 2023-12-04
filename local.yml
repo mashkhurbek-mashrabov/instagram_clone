@@ -1,0 +1,52 @@
+version: "3.9"
+
+volumes:
+  static_data: {}
+  instagram_clone_postgres_data: {}
+
+networks:
+  instagram_clone_network:
+
+
+services:
+
+  django: &django
+    build:
+      context: .
+      dockerfile: ./compose/local/Dockerfile
+    image: instagram_clone_local_image:latest
+    container_name: instagram_clone_local_container
+    command: python manage.py runserver 0.0.0.0:8000
+    platform: linux/x86_64
+    volumes:
+      - static_data:/app/vol
+    restart: always
+    ports:
+      - 8000:8000
+    depends_on:
+      - postgres
+    networks:
+      - instagram_clone_network
+    env_file:
+      - ./.env
+
+
+  postgres:
+    image: postgres:15-alpine3.18
+    container_name: instagram_clone_postgres_container
+    restart: always
+    volumes:
+      - instagram_clone_postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    networks:
+      - instagram_clone_network
+    env_file:
+      - ./.env
+    expose:
+      - "5432"
+    ports:
+      - "5432:5432"
+    command: -p 5432
